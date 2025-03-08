@@ -1,0 +1,54 @@
+mood-tracker/
+├── src/
+│   ├── components/
+│   │   ├── auth/
+│   │   │   ├── LoginForm.tsx
+│   │   │   └── RegisterForm.tsx
+│   │   ├── mood/
+│   │   │   ├── MoodSlider.tsx
+│   │   │   ├── MoodCard.tsx
+│   │   │   └── ActivityTags.tsx
+│   │   ├── charts/
+│   │   │   ├── WeeklyTrends.tsx
+│   │   │   └── LifeChart.tsx
+│   │   └── common/
+│   │       ├── Button.tsx
+│   │       ├── Input.tsx
+│   │       └── Loading.tsx
+│   ├── screens/
+│   │   ├── auth/
+│   │   │   ├── LoginScreen.tsx
+│   │   │   └── RegisterScreen.tsx
+│   │   ├── mood/
+│   │   │   ├── MoodEntryScreen.tsx
+│   │   │   ├── MoodHistoryScreen.tsx
+│   │   │   └── MoodDetailScreen.tsx
+│   │   ├── analytics/
+│   │   │   └── AnalyticsScreen.tsx
+│   │   └── settings/
+│   │       └── SettingsScreen.tsx
+│   ├── navigation/
+│   │   ├── AppNavigator.tsx
+│   │   ├── AuthNavigator.tsx
+│   │   └── types.ts
+│   ├── services/
+│   │   ├── api.ts
+│   │   └── auth.ts
+│   ├── hooks/
+│   │   ├── useMoods.ts
+│   │   └── useAuth.ts
+│   ├── store/
+│   │   ├── authStore.ts
+│   │   └── moodStore.ts
+│   └── utils/
+│       ├── constants.ts
+│       └── helpers.ts
+├── assets/
+│   ├── icon.png
+│   └── splash.png
+├── App.tsx
+├── app.json
+├── babel.config.js
+├── package.json
+├── tsconfig.json
+└── tailwind.config.js 
