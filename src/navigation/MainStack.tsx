@@ -7,14 +7,18 @@ import { colors } from '../constants/colors';
 // Screens
 import { HomeScreen } from '../screens/mood/HomeScreen';
 import { AddMoodScreen } from '../screens/mood/AddMoodScreen';
+import { MoodViewScreen } from '../screens/mood/MoodViewScreen';
 import { NotesScreen } from '../screens/notes/NotesScreen';
+import { HistoryScreen } from '../screens/history/HistoryScreen';
 import { AnalyticsScreen } from '../screens/analytics/AnalyticsScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { ManageMedicationsScreen } from '../screens/medications/ManageMedicationsScreen';
 import { LifeChartScreen } from '../screens/analytics/LifeChartScreen';
+import { DataManagementScreen } from '../screens/settings/DataManagementScreen';
 
 const Tab = createBottomTabNavigator();
 const MoodStack = createStackNavigator();
+const HistoryStack = createStackNavigator();
 const NotesStack = createStackNavigator();
 
 const MoodStackScreen = () => (
@@ -30,11 +34,31 @@ const MoodStackScreen = () => (
       options={{ title: 'Track Mood' }}
     />
     <MoodStack.Screen 
+      name="MoodView" 
+      component={MoodViewScreen} 
+      options={{ title: 'Mood Details' }}
+    />
+    <MoodStack.Screen 
       name="ManageMedications" 
       component={ManageMedicationsScreen} 
       options={{ title: 'Medications' }}
     />
   </MoodStack.Navigator>
+);
+
+const HistoryStackScreen = () => (
+  <HistoryStack.Navigator>
+    <HistoryStack.Screen
+      name="HistoryHome"
+      component={HistoryScreen}
+      options={{ headerShown: false }}
+    />
+    <HistoryStack.Screen
+      name="MoodView"
+      component={MoodViewScreen}
+      options={{ title: 'Mood Details' }}
+    />
+  </HistoryStack.Navigator>
 );
 
 const NotesStackScreen = () => (
@@ -52,6 +76,11 @@ const SettingsStack = () => {
   return (
     <MoodStack.Navigator screenOptions={{ headerShown: false }}>
       <MoodStack.Screen name="SettingsMain" component={SettingsScreen} />
+      <MoodStack.Screen
+        name="DataManagement"
+        component={DataManagementScreen}
+        options={{ title: 'Data Management' }}
+      />
     </MoodStack.Navigator>
   );
 };
@@ -66,13 +95,15 @@ export const MainStack = () => {
 
           if (route.name === 'HomeTab') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'HistoryTab') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
           } else if (route.name === 'LifeChartTab') {
             iconName = focused ? 'analytics' : 'analytics-outline';
           } else if (route.name === 'SettingsTab') {
             iconName = focused ? 'settings' : 'settings-outline';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName as any} size={size} color={color} />;
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textLight,
@@ -93,12 +124,17 @@ export const MainStack = () => {
       <Tab.Screen 
         name="HomeTab" 
         component={MoodStackScreen} 
-        options={{ title: 'Mood' }}
+        options={{ title: 'Today' }}
+      />
+      <Tab.Screen 
+        name="HistoryTab" 
+        component={HistoryStackScreen} 
+        options={{ title: 'History' }}
       />
       <Tab.Screen 
         name="LifeChartTab" 
         component={LifeChartScreen} 
-        options={{ title: 'Life Chart' }}
+        options={{ title: 'Chart' }}
       />
       <Tab.Screen 
         name="SettingsTab" 

@@ -22,7 +22,8 @@ import { Audio } from 'expo-av';
 import { colors } from '../../constants/colors';
 import { medicationService, Medication } from '../../services/medicationService';
 import { moodService, MoodEntry } from '../../services/moodService';
-import Voice from '@react-native-voice/voice';
+import Voice from '../../services/voiceService';
+import { isExpoGo } from '../../utils/platformUtils';
 
 // Bipolar mood scale - without emojis
 const moodScaleConfig = [
@@ -70,7 +71,7 @@ const userMedications = [
 ];
 
 // Replace real voice integration with a mock in Expo Go
-const isSpeechRecognitionAvailable = false; // Set to false for Expo Go testing
+const isSpeechRecognitionAvailable = !isExpoGo;
 
 export const AddMoodScreen = ({ navigation, route }) => {
   const existingMood = route.params?.existingMood;

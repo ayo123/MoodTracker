@@ -38,6 +38,18 @@ const initialMoods: MoodEntry[] = [
   { date: '2023-10-20', mood: { name: 'Anxious', score: 1, category: 'Deep Depression' }},
 ];
 
+// Check if you have mock data that needs updating
+const mockMoods: MoodEntry[] = [
+  {
+    id: 1,
+    date: "2023-10-15", // YYYY-MM-DD format
+    mood: { name: "Happy", score: 7 },
+    emotions: [{ name: "Excited" }],
+    notes: "Had a great day!"
+  },
+  // More mock entries...
+];
+
 // Storage key
 const MOODS_STORAGE_KEY = 'mood_tracker_moods';
 
@@ -132,6 +144,53 @@ export const moodService = {
     } catch (error) {
       console.error('Error getting latest mood:', error);
       return null;
+    }
+  },
+
+  // Get mood by ID
+  getMoodById: async (id: string): Promise<MoodEntry | null> => {
+    try {
+      // If using local storage
+      const moods = await AsyncStorage.getItem(MOODS_STORAGE_KEY);
+      if (moods) {
+        const parsedMoods = JSON.parse(moods);
+        return parsedMoods.find(mood => mood.id === id) || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting mood by ID:', error);
+      return null;
+    }
+  },
+
+  // Get mood by date
+  getMoodByDate: async (date: string): Promise<MoodEntry | null> => {
+    try {
+      // If using local storage
+      const moods = await AsyncStorage.getItem(MOODS_STORAGE_KEY);
+      if (moods) {
+        const parsedMoods = JSON.parse(moods);
+        return parsedMoods.find(mood => mood.date === date) || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting mood by date:', error);
+      return null;
+    }
+  },
+
+  // Get all moods
+  getAllMoods: async (): Promise<MoodEntry[]> => {
+    try {
+      // If using local storage
+      const moods = await AsyncStorage.getItem(MOODS_STORAGE_KEY);
+      if (moods) {
+        return JSON.parse(moods);
+      }
+      return [];
+    } catch (error) {
+      console.error('Error getting all moods:', error);
+      return [];
     }
   }
 }; 

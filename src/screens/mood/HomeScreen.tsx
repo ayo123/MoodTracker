@@ -14,16 +14,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { medicationService, Medication } from '../../services/medicationService';
 import { moodService, MoodEntry } from '../../services/moodService';
 
-// Placeholder data for recent moods
-const recentMoods = [
-  { date: '2023-10-23', mood: { name: 'Happy', score: 8, category: 'Hypomania' }},
-  { date: '2023-10-22', mood: { name: 'Calm', score: 5, category: 'Euthymic' }},
-  { date: '2023-10-21', mood: { name: 'Tired', score: 2, category: 'Depression' }},
-  { date: '2023-10-20', mood: { name: 'Anxious', score: 1, category: 'Deep Depression' }},
-];
-
 // Get mood category
-const getMoodCategory = (score) => {
+const getMoodCategory = (score: number) => {
   if (score <= 1) return { name: 'Deep Depression', color: '#8B0000' };
   if (score <= 3) return { name: 'Depression', color: '#CD5C5C' };
   if (score <= 6) return { name: 'Euthymic', color: '#4CAF50' };
@@ -31,10 +23,10 @@ const getMoodCategory = (score) => {
   return { name: 'Mania', color: '#FF4500' };
 };
 
-export const HomeScreen = ({ navigation }) => {
+export const HomeScreen = ({ navigation }: { navigation: any }) => {
   const [todayMood, setTodayMood] = useState<MoodEntry | null>(null);
   const [hasMedications, setHasMedications] = useState(false);
-  const [medications, setMedications] = useState([]);
+  const [medications, setMedications] = useState<Medication[]>([]);
   const [loadingMeds, setLoadingMeds] = useState(true);
   const [latestMood, setLatestMood] = useState<MoodEntry | null>(null);
   const [loadingMoods, setLoadingMoods] = useState(true);
@@ -88,7 +80,11 @@ export const HomeScreen = ({ navigation }) => {
   };
   
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={true}
+    >
       <View style={styles.header}>
         <Text style={styles.title}>Welcome</Text>
         <Text style={styles.date}>
@@ -132,7 +128,10 @@ export const HomeScreen = ({ navigation }) => {
         ) : (
           <View style={styles.section}>
             <Text style={styles.todayLabel}>Today's Mood</Text>
-            <View style={styles.moodCard}>
+            <TouchableOpacity 
+              style={styles.moodCard}
+              onPress={() => navigation.navigate('MoodView', { date: todayMood.date })}
+            >
               <Text style={styles.moodText}>{todayMood.mood.name}</Text>
               
               <View style={[styles.moodCategory, { backgroundColor: getMoodCategory(todayMood.mood.score).color }]}>
@@ -160,14 +159,16 @@ export const HomeScreen = ({ navigation }) => {
                 </View>
               )}
               
-              {/* Add an Update button for the mood */}
               <TouchableOpacity 
                 style={styles.updateMoodButton}
-                onPress={() => navigation.navigate('AddMood', { existingMood: todayMood })}
+                onPress={(e) => {
+                  e.stopPropagation(); // Prevent parent onPress from firing
+                  navigation.navigate('AddMood', { existingMood: todayMood });
+                }}
               >
                 <Text style={styles.updateMoodButtonText}>Update Mood</Text>
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -210,24 +211,6 @@ export const HomeScreen = ({ navigation }) => {
           <Text style={styles.chartPlaceholderText}>Mood tracking chart coming soon!</Text>
           <Text style={styles.chartPlaceholderInfo}>Track your mood daily to see patterns</Text>
         </View>
-        
-        {/* Show a few recent entries as simple colored dots */}
-        <View style={styles.recentMoodsContainer}>
-          {recentMoods.map((mood, index) => (
-            <View key={index} style={styles.recentMoodItem}>
-              <Text style={styles.moodDate}>{mood.date}</Text>
-              <View style={styles.moodInfo}>
-                <View 
-                  style={[
-                    styles.moodIndicator, 
-                    {backgroundColor: getMoodCategory(mood.mood.score).color}
-                  ]} 
-                />
-                <Text style={styles.moodName}>{mood.mood.name}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
       </View>
     </ScrollView>
   );
@@ -237,6 +220,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  contentContainer: {
+    padding: 15,
+    paddingBottom: 30,
   },
   header: {
     padding: 20,

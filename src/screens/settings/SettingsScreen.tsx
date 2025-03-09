@@ -235,6 +235,18 @@ export const SettingsScreen = ({ navigation }) => {
         
         {/* Add other settings sections as needed */}
         
+        {/* Add a new settings option */}
+        <TouchableOpacity
+          style={styles.settingItem}
+          onPress={() => navigation.navigate('DataManagement')}
+        >
+          <View style={styles.settingInfo}>
+            <Ionicons name="server-outline" size={24} color={colors.text} />
+            <Text style={styles.settingTitle}>Data Management</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+        </TouchableOpacity>
+        
       </ScrollView>
     </SafeAreaView>
   );
@@ -312,5 +324,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.primary,
     fontWeight: '500',
+  },
+  settingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingTitle: {
+    fontSize: 16,
+    color: colors.text,
+    marginLeft: 10,
   },
 });
