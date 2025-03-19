@@ -1,15 +1,22 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { HomeScreen } from '../screens/HomeScreen';
+import HomeScreen from '../screens/mood/HomeScreen';
 import { MoodHistoryScreen } from '../screens/mood/MoodHistoryScreen';
 import { AnalyticsScreen } from '../screens/analytics/AnalyticsScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { colors } from '../constants/colors';
+import { View, Text } from 'react-native';
 
 const Tab = createBottomTabNavigator();
 
-export const MainNavigator = () => {
+const ComingSoonScreen = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <Text>Coming Soon!</Text>
+  </View>
+);
+
+const MainNavigator = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -41,10 +48,36 @@ export const MainNavigator = () => {
         tabBarInactiveTintColor: colors.textLight,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="History" component={MoodHistoryScreen} />
-      <Tab.Screen name="Analytics" component={AnalyticsScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen 
+        name="Home" 
+        component={HomeScreen} 
+        options={{
+          tabBarIcon: ({ color }) => <Ionicons name="home" size={24} color={color} />
+        }}
+      />
+      <Tab.Screen 
+        name="History" 
+        component={MoodHistoryScreen}
+        options={{
+          tabBarIcon: ({ color }) => <Ionicons name="calendar" size={24} color={color} />
+        }}
+      />
+      <Tab.Screen 
+        name="Analytics" 
+        component={ComingSoonScreen}
+        options={{
+          tabBarIcon: ({ color }) => <Ionicons name="stats-chart" size={24} color={color} />
+        }}
+      />
+      <Tab.Screen 
+        name="Settings" 
+        component={ComingSoonScreen}
+        options={{
+          tabBarIcon: ({ color }) => <Ionicons name="settings" size={24} color={color} />
+        }}
+      />
     </Tab.Navigator>
   );
-}; 
+};
+
+export default MainNavigator; 

@@ -1,32 +1,31 @@
-import 'react-native-gesture-handler';
-import React, { useEffect, useRef } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useRef, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import Constants from 'expo-constants';
-import { MainStack } from './src/navigation/MainStack';
-import { notificationService } from './src/services/notificationService';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
+import AppNavigator from './src/navigation/AppNavigator';
+import { useAuthStore } from './src/store/authStore';
+import { setupMockApiForDev } from './src/services/mockApiMiddleware';
 
 export default function App() {
-  const navigationRef = useRef(null);
-
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
+  const isAuthenticated = useAuthStore(state => !!state.token);
+  
+  // Set up mock API interceptors for dev mode
   useEffect(() => {
-    // Check if notifications are enabled when app starts
-    const checkNotifications = async () => {
-      try {
-        const notificationsEnabled = await notificationService.areNotificationsEnabled();
-        console.log('Notifications enabled:', notificationsEnabled);
-      } catch (error) {
-        console.log('Error checking notifications:', error);
-      }
-    };
-    
-    checkNotifications();
+    if (__DEV__) {
+      setupMockApiForDev();
+    }
   }, []);
+  
+  // Force a refresh when auth state changes
+  useEffect(() => {
+    console.log("Authentication state in App.tsx:", isAuthenticated);
+  }, [isAuthenticated]);
 
   return (
-    <NavigationContainer ref={navigationRef}>
-      <MainStack />
+    <SafeAreaProvider>
       <StatusBar style="auto" />
-    </NavigationContainer>
+      <AppNavigator isAuthenticated={isAuthenticated} />
+    </SafeAreaProvider>
   );
 } 

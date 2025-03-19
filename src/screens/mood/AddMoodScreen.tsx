@@ -1,77 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Switch,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  Keyboard,
-  TouchableWithoutFeedback,
-  Animated,
+  ScrollView,
   ActivityIndicator,
+  Switch,
+  Animated,
   Alert,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
-import * as Speech from 'expo-speech';
-import { Audio } from 'expo-av';
 import { colors } from '../../constants/colors';
-import { medicationService, Medication } from '../../services/medicationService';
-import { moodService, MoodEntry } from '../../services/moodService';
-import Voice from '../../services/voiceService';
-import { isExpoGo } from '../../utils/platformUtils';
-
-// Bipolar mood scale - without emojis
-const moodScaleConfig = [
-  { score: 0, name: 'Deep Depression', category: 'Deep Depression' },
-  { score: 1, name: 'Severe Depression', category: 'Deep Depression' },
-  { score: 2, name: 'Depression', category: 'Depression' },
-  { score: 3, name: 'Mild Depression', category: 'Depression' },
-  { score: 4, name: 'Slightly Low', category: 'Euthymic' },
-  { score: 5, name: 'Neutral', category: 'Euthymic' },
-  { score: 6, name: 'Slightly Elevated', category: 'Euthymic' },
-  { score: 7, name: 'Hypomania', category: 'Hypomania' },
-  { score: 8, name: 'Strong Hypomania', category: 'Hypomania' },
-  { score: 9, name: 'Mania', category: 'Mania' },
-  { score: 10, name: 'Severe Mania', category: 'Mania' },
-];
-
-// Get mood category color
-const getMoodCategoryColor = (score) => {
-  if (score <= 1) return '#8B0000'; // Deep Depression - dark red
-  if (score <= 3) return '#CD5C5C'; // Depression - light red
-  if (score <= 6) return '#4CAF50'; // Euthymic - green
-  if (score <= 8) return '#FFD700'; // Hypomania - gold
-  return '#FF4500'; // Mania - orange red
-};
-
-// Sample emotions that can be selected
-const defaultEmotions = [
-  { id: 1, name: 'Anxious' },
-  { id: 2, name: 'Irritable' },
-  { id: 3, name: 'Sad' },
-  { id: 4, name: 'Excited' },
-  { id: 5, name: 'Tired' },
-  { id: 6, name: 'Hopeful' },
-  { id: 7, name: 'Frustrated' },
-  { id: 8, name: 'Grateful' },
-  { id: 9, name: 'Overwhelmed' },
-  { id: 10, name: 'Calm' },
-];
-
-// Sample medications
-const userMedications = [
-  { id: 1, name: 'Lithium', dosage: '300mg', frequency: 'Twice daily' },
-  { id: 2, name: 'Lamotrigine', dosage: '200mg', frequency: 'Once daily' },
-  { id: 3, name: 'Quetiapine', dosage: '50mg', frequency: 'At bedtime' },
-];
-
-// Replace real voice integration with a mock in Expo Go
-const isSpeechRecognitionAvailable = !isExpoGo;
+import { medicationService } from '../../services/medicationService';
+import { moodService } from '../../services/moodService';
+import { defaultEmotions } from '../../constants/emotions';
 
 export const AddMoodScreen = ({ navigation, route }) => {
   const existingMood = route.params?.existingMood;
@@ -86,6 +31,7 @@ export const AddMoodScreen = ({ navigation, route }) => {
   const [isListening, setIsListening] = useState(false);
   const [hasMicPermission, setHasMicPermission] = useState(false);
   const [results, setResults] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Animation value for transitions
   const [slideAnim] = useState(new Animated.Value(0));
@@ -119,80 +65,12 @@ export const AddMoodScreen = ({ navigation, route }) => {
     loadMedications();
   }, [existingMood]);
   
-  // Check for microphone permission on component mount
-  useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Audio.requestPermissionsAsync();
-        setHasMicPermission(status === 'granted');
-      } catch (error) {
-        console.log('Error getting microphone permission:', error);
-      }
-    })();
-  }, []);
-  
-  // Set up Voice recognition handlers
-  useEffect(() => {
-    // Voice recognition event handlers
-    Voice.onSpeechStart = onSpeechStart;
-    Voice.onSpeechEnd = onSpeechEnd;
-    Voice.onSpeechResults = onSpeechResults;
-    Voice.onSpeechError = onSpeechError;
-    
-    return () => {
-      // Clean up listeners when component unmounts
-      Voice.destroy().then(Voice.removeAllListeners);
-    };
-  }, []);
-  
-  const onSpeechStart = () => {
-    console.log('Speech recognition started');
-  };
-  
-  const onSpeechEnd = () => {
-    setIsListening(false);
-    console.log('Speech recognition ended');
-  };
-  
-  const onSpeechResults = (e) => {
-    if (e.value && e.value.length > 0) {
-      const recognizedText = e.value[0];
-      console.log('Speech recognition results:', recognizedText);
-      
-      // Append to notes or replace
-      if (notes.trim().length > 0) {
-        setNotes(notes + ' ' + recognizedText);
-      } else {
-        setNotes(recognizedText);
-      }
-    }
-    setResults(e.value || []);
-  };
-  
-  const onSpeechError = (e) => {
-    console.error('Speech recognition error:', e);
-    setIsListening(false);
-  };
-  
-  const startListening = async () => {
-    try {
-      if (isListening) {
-        await Voice.stop();
-        setIsListening(false);
-      } else {
-        setResults([]);
-        await Voice.start('en-US');
-        setIsListening(true);
-      }
-    } catch (error) {
-      console.error('Error toggling speech recognition:', error);
-    }
-  };
-  
-  // Get mood based on score
-  const getCurrentMood = (score) => {
-    const roundedScore = Math.round(score);
-    return moodScaleConfig.find(mood => mood.score === roundedScore);
+  const getCurrentMood = (moodScore) => {
+    if (moodScore <= 1) return { name: 'Deep Depression', color: '#8B0000' };
+    if (moodScore <= 3) return { name: 'Depression', color: '#CD5C5C' };
+    if (moodScore <= 6) return { name: 'Euthymic', color: '#4CAF50' };
+    if (moodScore <= 8) return { name: 'Hypomania', color: '#FFD700' };
+    return { name: 'Mania', color: '#FF4500' };
   };
   
   const currentMood = getCurrentMood(moodScore);
@@ -226,31 +104,50 @@ export const AddMoodScreen = ({ navigation, route }) => {
     );
   };
 
-  const handleSave = async () => {
+  // Save mood entry
+  const saveMoodEntry = async () => {
     try {
-      // Create mood data object
-      const moodData: MoodEntry = {
-        date: new Date().toISOString().split('T')[0],
+      setIsSaving(true);
+      
+      // Format data for API
+      const moodData = {
+        id: existingMood?.id, // Include ID if editing existing mood
+        date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
         mood: {
-          name: currentMood.name,
-          score: currentMood.score,
-          category: currentMood.category
+          score: moodScore,
+          name: currentMood.name
         },
         emotions: selectedEmotions,
-        notes,
-        medicationsTaken,
+        notes: notes.trim(),
+        medicationsTaken: medicationsTaken.filter(med => med.taken).map(med => ({
+          id: med.id,
+          name: med.name,
+          dosage: med.dosage,
+          taken: med.taken
+        }))
       };
-
-      console.log('Saving mood:', moodData);
       
-      // Save to moodService
-      await moodService.saveMood(moodData);
+      console.log('====== SAVING MOOD DATA ======');
+      console.log(JSON.stringify(moodData, null, 2));
       
-      // Return to home screen
-      navigation.goBack();
+      // Call API to save/update mood entry
+      const savedMood = await moodService.saveMoodEntry(moodData);
+      console.log('====== RECEIVED SAVED MOOD ======');
+      console.log(JSON.stringify(savedMood, null, 2));
+      
+      // Show success message
+      Alert.alert('Success', 'Your mood has been saved.');
+      
+      // Wait a moment before navigating back to ensure data is processed
+      setTimeout(() => {
+        // Important: Navigate back to refresh the home screen
+        navigation.goBack();
+      }, 300);
     } catch (error) {
       console.error('Failed to save mood:', error);
-      // You could show an alert here
+      Alert.alert('Error', 'Failed to save your mood. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
   
@@ -288,91 +185,37 @@ export const AddMoodScreen = ({ navigation, route }) => {
     });
   };
   
-  // Get section progress indicator
-  const getSectionProgress = () => {
-    return [
-      { label: 'Mood', active: activeSection >= 0 },
-      { label: 'Emotions', active: activeSection >= 1 },
-      { label: 'Medications', active: activeSection >= 2 },
-      { label: 'Notes', active: activeSection >= 3 },
-    ];
-  };
-  
-  // Render the active section
-  const renderSection = () => {
-    switch (activeSection) {
-      case 0:
-        return renderMoodSection();
-      case 1:
-        return renderEmotionsSection();
-      case 2:
-        return renderMedicationsSection();
-      case 3:
-        return renderNotesSection();
-      default:
-        return null;
-    }
-  };
-
-  // Render the mood section
+  // Render mood selection section
   const renderMoodSection = () => {
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>How are you feeling?</Text>
-        <View style={styles.moodScaleContainer}>
-          <Text style={styles.currentMoodName}>{currentMood.name}</Text>
-          
+        <Text style={styles.sectionTitle}>How's your mood today?</Text>
+        <View style={styles.moodEmojiContainer}>
           <View 
             style={[
-              styles.moodCategoryIndicator, 
-              { backgroundColor: getMoodCategoryColor(moodScore) }
+              styles.moodScoreIndicator, 
+              { backgroundColor: currentMood.color }
             ]}
           >
-            <Text style={styles.moodCategoryText}>{currentMood.category}</Text>
+            <Text style={styles.moodScoreText}>{moodScore}</Text>
           </View>
-          
-          <View style={styles.sliderContainer}>
-            <Text style={styles.sliderLabel}>Depression</Text>
-            <Slider
-              style={styles.slider}
-              minimumValue={0}
-              maximumValue={10}
-              step={1}
-              value={moodScore}
-              onValueChange={setMoodScore}
-              minimumTrackTintColor={getMoodCategoryColor(moodScore)}
-              maximumTrackTintColor="#DDDDDD"
-              thumbTintColor={getMoodCategoryColor(moodScore)}
-            />
-            <Text style={styles.sliderLabel}>Mania</Text>
-          </View>
+          <Text style={[styles.moodName, { color: currentMood.color }]}>
+            {currentMood.name}
+          </Text>
         </View>
-        
-        <TouchableOpacity style={styles.nextButton} onPress={goToNextSection}>
-          <Text style={styles.nextButtonText}>Next: Emotions</Text>
-          <Ionicons name="arrow-forward" size={20} color={colors.white} />
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  // Render the emotions section
-  const renderEmotionsSection = () => {
-    return (
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>What emotions are you experiencing?</Text>
-        
+        <MoodSlider />
+        <Text style={[styles.sectionSubtitle, {marginTop: 20}]}>What emotions are you experiencing?</Text>
         <View style={styles.emotionsContainer}>
-          {emotions.map((emotion) => (
+          {emotions.map(emotion => (
             <TouchableOpacity
               key={emotion.id}
               style={[
                 styles.emotionChip,
-                selectedEmotions.some(e => e.id === emotion.id) && styles.selectedEmotionChip
+                selectedEmotions.some(e => e.id === emotion.id) && styles.selectedEmotion
               ]}
               onPress={() => toggleEmotion(emotion)}
             >
-              <Text
+              <Text 
                 style={[
                   styles.emotionText,
                   selectedEmotions.some(e => e.id === emotion.id) && styles.selectedEmotionText
@@ -383,502 +226,401 @@ export const AddMoodScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           ))}
         </View>
-        
         <View style={styles.addEmotionContainer}>
           <TextInput
             style={styles.addEmotionInput}
-            placeholder="Add custom emotion..."
             value={newEmotion}
             onChangeText={setNewEmotion}
-            onSubmitEditing={addEmotion}
+            placeholder="Add custom emotion..."
+            placeholderTextColor="#999"
           />
-          <TouchableOpacity style={styles.addEmotionButton} onPress={addEmotion}>
-            <Ionicons name="add" size={24} color={colors.white} />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.navigationButtons}>
-          <TouchableOpacity style={styles.backButton} onPress={goToPrevSection}>
-            <Ionicons name="arrow-back" size={20} color={colors.text} />
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.nextButton} onPress={goToNextSection}>
-            <Text style={styles.nextButtonText}>Next: Medications</Text>
-            <Ionicons name="arrow-forward" size={20} color={colors.white} />
+          <TouchableOpacity 
+            style={styles.addEmotionButton}
+            onPress={addEmotion}
+            disabled={!newEmotion.trim()}
+          >
+            <Ionicons name="add" size={24} color="white" />
           </TouchableOpacity>
         </View>
       </View>
     );
   };
-
-  // Render the medications section with proper navigation buttons
-  const renderMedicationsSection = () => {
+  
+  // Render notes and medications section
+  const renderNotesAndMedicationsSection = () => {
     return (
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Medications Taken</Text>
-        <Text style={styles.sectionDescription}>
-          Mark which medications you've taken today.
-        </Text>
+        <Text style={styles.sectionTitle}>Additional Details</Text>
         
+        <Text style={styles.sectionSubtitle}>Notes</Text>
+        <TextInput
+          style={styles.notesInput}
+          placeholder="How was your day? Any events that affected your mood?"
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+        />
+        
+        <Text style={[styles.sectionSubtitle, {marginTop: 20}]}>Medications Taken</Text>
         {loading ? (
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loading} />
-        ) : medicationsTaken.length > 0 ? (
-          <>
-            {medicationsTaken.map((medication) => (
-              <View key={medication.id} style={styles.medicationItem}>
-                <View>
-                  <Text style={styles.medicationName}>{medication.name}</Text>
-                  <Text style={styles.medicationDetails}>
-                    {medication.dosage} - {medication.frequency}
-                    {medication.time ? ` at ${medication.time}` : ''}
-                  </Text>
-                </View>
-                <Switch
-                  value={medication.taken}
-                  onValueChange={() => toggleMedication(medication.id)}
-                  trackColor={{ false: "#767577", true: colors.primary }}
-                  thumbColor="#f4f3f4"
-                />
-              </View>
-            ))}
-          </>
+          <ActivityIndicator style={styles.loading} />
         ) : (
-          <View style={styles.noMedicationsContainer}>
-            <Text style={styles.noMedicationsText}>No medications added yet</Text>
-            <TouchableOpacity
-              style={styles.manageMedsButton}
-              onPress={() => {
-                navigation.navigate('ManageMedications');
-              }}
-            >
-              <Text style={styles.manageMedsText}>Add Medications</Text>
-            </TouchableOpacity>
-          </View>
+          <>
+            {medicationsTaken.length === 0 ? (
+              <View style={styles.noMedicationsContainer}>
+                <Text style={styles.noMedicationsText}>No medications added yet</Text>
+                <TouchableOpacity
+                  style={styles.manageMedsButton}
+                  onPress={() => {
+                    navigation.navigate('ManageMedications');
+                  }}
+                >
+                  <Text style={styles.manageMedsText}>Add Medications</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                {medicationsTaken.map((medication) => (
+                  <View key={medication.id} style={styles.medicationItem}>
+                    <View>
+                      <Text style={styles.medicationName}>{medication.name}</Text>
+                      <Text style={styles.medicationDetails}>
+                        {medication.dosage} - {medication.frequency}
+                        {medication.time ? ` at ${medication.time}` : ''}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={medication.taken}
+                      onValueChange={() => toggleMedication(medication.id)}
+                      trackColor={{ false: "#767577", true: colors.primary }}
+                      thumbColor="#f4f3f4"
+                    />
+                  </View>
+                ))}
+              </>
+            )}
+          </>
         )}
-        
-        <View style={styles.navigationButtons}>
-          <TouchableOpacity style={styles.backButton} onPress={goToPrevSection}>
-            <Ionicons name="arrow-back" size={20} color={colors.text} />
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.nextButton} onPress={goToNextSection}>
-            <Text style={styles.nextButtonText}>Next: Notes</Text>
-            <Ionicons name="arrow-forward" size={20} color={colors.white} />
-          </TouchableOpacity>
-        </View>
       </View>
     );
   };
-
-  // Render the notes section with speech-to-text button
-  const renderNotesSection = () => {
+  
+  // Replace slider with draggable component
+  const MoodSlider = () => {
+    // Create array of touchable spots for the slider
+    const values = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    
     return (
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Add notes about your day</Text>
-        
-        <View style={styles.notesInputContainer}>
-          <TextInput
-            style={styles.notesInput}
-            multiline
-            placeholder="Add notes about your day..."
-            value={notes}
-            onChangeText={setNotes}
-          />
-          
-          {isSpeechRecognitionAvailable && (
-            <TouchableOpacity 
+      <View style={styles.sliderContainer}>
+        <Text style={styles.sliderLabel}>Depression</Text>
+        <View style={styles.customSlider}>
+          {values.map((value) => (
+            <TouchableOpacity
+              key={value}
               style={[
-                styles.micButton,
-                isListening && styles.micButtonActive
+                styles.sliderButton,
+                value === moodScore && { 
+                  backgroundColor: currentMood.color,
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15
+                }
               ]}
-              onPress={startListening}
+              onPress={() => setMoodScore(value)}
             >
-              <Ionicons 
-                name={isListening ? "mic" : "mic-outline"} 
-                size={24} 
-                color={isListening ? colors.white : colors.primary} 
-              />
+              {value === moodScore && (
+                <Text style={styles.sliderButtonText}>{value}</Text>
+              )}
             </TouchableOpacity>
-          )}
+          ))}
         </View>
-        
-        {isListening && (
-          <Text style={styles.listeningText}>
-            Listening... Speak now
-          </Text>
-        )}
-        
-        <View style={styles.navigationButtons}>
-          <TouchableOpacity style={styles.backButton} onPress={goToPrevSection}>
-            <Ionicons name="arrow-back" size={20} color={colors.text} />
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Save Mood Entry</Text>
-            <Ionicons name="checkmark" size={20} color={colors.white} />
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.sliderLabel}>Mania</Text>
       </View>
     );
   };
-
+  
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.container}
-        keyboardVerticalOffset={100}
+    <View style={styles.container}>
+      <View style={styles.progress}>
+        {[0, 1].map(step => (
+          <View
+            key={step}
+            style={[
+              styles.progressStep,
+              activeSection >= step && styles.progressStepActive
+            ]}
+          />
+        ))}
+      </View>
+      
+      <Animated.ScrollView
+        style={[styles.scrollContainer, { transform: [{ translateX: slideAnim }] }]}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.container}>
-            <View style={styles.header}>
-              <Text style={styles.title}>{existingMood ? 'Update Mood' : 'Add Mood'}</Text>
-              <Text style={styles.date}>
-                {new Date().toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
-              </Text>
-            </View>
-            
-            <View style={styles.progressContainer}>
-              {getSectionProgress().map((section, index) => (
-                <View key={index} style={styles.progressStep}>
-                  <View 
-                    style={[
-                      styles.progressDot,
-                      section.active ? styles.activeProgressDot : styles.inactiveProgressDot
-                    ]}
-                  />
-                  <Text 
-                    style={[
-                      styles.progressLabel,
-                      section.active ? styles.activeProgressLabel : styles.inactiveProgressLabel
-                    ]}
-                  >
-                    {section.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-            
-            <Animated.View 
-              style={[
-                styles.sectionWrapper,
-                { transform: [{ translateX: slideAnim }] }
-              ]}
-            >
-              {renderSection()}
-            </Animated.View>
-          </View>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        {activeSection === 0 && renderMoodSection()}
+        {activeSection === 1 && renderNotesAndMedicationsSection()}
+      </Animated.ScrollView>
+      
+      <View style={styles.navigationButtons}>
+        {activeSection > 0 && (
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={goToPrevSection}
+          >
+            <Ionicons name="arrow-back" size={16} color={colors.primary} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+        )}
+        
+        {activeSection < 1 ? (
+          <TouchableOpacity 
+            style={styles.nextButton}
+            onPress={goToNextSection}
+          >
+            <Text style={styles.nextButtonText}>Next</Text>
+            <Ionicons name="arrow-forward" size={16} color="white" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            style={styles.saveButton}
+            onPress={saveMoodEntry}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <>
+                <Text style={styles.saveButtonText}>Save</Text>
+                <Ionicons name="checkmark" size={16} color="white" />
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-    padding: 20,
+    backgroundColor: '#fff',
   },
-  header: {
-    marginBottom: 15,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  date: {
-    fontSize: 16,
-    color: colors.textLight,
-    marginTop: 5,
-  },
-  progressContainer: {
+  progress: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 30,
-    paddingHorizontal: 10,
+    paddingHorizontal: 40,
+    marginVertical: 20,
   },
   progressStep: {
-    alignItems: 'center',
-    width: 80,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#e0e0e0',
   },
-  progressDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    marginBottom: 8,
-  },
-  activeProgressDot: {
+  progressStepActive: {
     backgroundColor: colors.primary,
   },
-  inactiveProgressDot: {
-    backgroundColor: colors.card.border,
-  },
-  progressLabel: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  activeProgressLabel: {
-    color: colors.text,
-    fontWeight: '600',
-  },
-  inactiveProgressLabel: {
-    color: colors.textLight,
-  },
-  sectionWrapper: {
-    flex: 1,
-  },
   sectionContainer: {
-    flex: 1,
+    padding: 20,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text,
+    fontSize: 22,
+    fontWeight: 'bold',
     marginBottom: 20,
-  },
-  moodScaleContainer: {
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    marginBottom: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  currentMoodName: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
     textAlign: 'center',
-    marginBottom: 10,
   },
-  moodCategoryIndicator: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 25,
-    marginVertical: 10,
+  moodEmojiContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
   },
-  moodCategoryText: {
-    color: colors.white,
+  moodScoreIndicator: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moodScoreText: {
+    fontSize: 24,
     fontWeight: 'bold',
-    fontSize: 16,
+  },
+  moodName: {
+    fontSize: 24,
+    fontWeight: '600',
   },
   sliderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    marginVertical: 15,
-  },
-  slider: {
-    flex: 1,
-    height: 40,
-    marginHorizontal: 10,
+    justifyContent: 'space-between',
+    marginVertical: 20,
   },
   sliderLabel: {
-    fontSize: 14,
-    color: colors.textLight,
-    width: 80,
-    textAlign: 'center',
+    fontSize: 16,
+    color: '#666',
+  },
+  sectionSubtitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
   },
   emotionsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 20,
+    justifyContent: 'center',
   },
   emotionChip: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    margin: 4,
-    borderWidth: 1,
-    borderColor: colors.card.border,
+    borderRadius: 20,
+    margin: 5,
   },
-  selectedEmotionChip: {
+  selectedEmotion: {
     backgroundColor: colors.primary,
   },
   emotionText: {
-    color: colors.text,
+    color: '#333',
   },
   selectedEmotionText: {
-    color: colors.white,
+    color: 'white',
   },
   addEmotionContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 30,
+    marginTop: 20,
+    marginBottom: 10,
   },
   addEmotionInput: {
     flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    padding: 12,
-    marginRight: 10,
     borderWidth: 1,
-    borderColor: colors.card.border,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 10,
+    marginRight: 10,
   },
   addEmotionButton: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
-    padding: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  notesInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 15,
+    height: 200,
+    fontSize: 16,
   },
   medicationItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.card.border,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   medicationName: {
     fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
+    fontWeight: 'bold',
   },
   medicationDetails: {
     fontSize: 14,
-    color: colors.textLight,
+    color: '#666',
     marginTop: 2,
   },
+  noMedicationsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+  },
   noMedicationsText: {
-    fontSize: 15,
-    color: colors.textLight,
+    fontSize: 16,
+    color: '#666',
     marginBottom: 15,
-    fontStyle: 'italic',
   },
   manageMedsButton: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.primaryLight,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.primary,
-    marginTop: 5,
-    marginBottom: 30,
   },
   manageMedsText: {
     color: colors.primary,
-    fontWeight: '500',
-  },
-  notesInputContainer: {
-    position: 'relative',
-    marginBottom: 30,
-  },
-  notesInput: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 15,
-    paddingRight: 50, // Make room for the mic button
-    minHeight: 150,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: colors.card.border,
-  },
-  micButton: {
-    position: 'absolute',
-    bottom: 15,
-    right: 15,
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  micButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  listeningText: {
-    color: colors.primary,
-    fontStyle: 'italic',
-    marginTop: -25,
-    marginBottom: 25,
-    textAlign: 'center',
-  },
-  navigationButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 'auto',
-  },
-  nextButton: {
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    flex: 1,
-    marginLeft: 10,
-  },
-  nextButtonText: {
-    color: colors.white,
-    fontWeight: '600',
-    fontSize: 16,
-    marginRight: 10,
-  },
-  backButton: {
-    backgroundColor: colors.background,
-    borderColor: colors.card.border,
-    borderWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-  },
-  backButtonText: {
-    color: colors.text,
-    fontWeight: '500',
-    fontSize: 16,
-    marginLeft: 10,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    flex: 1,
-    marginLeft: 10,
-  },
-  saveButtonText: {
-    color: colors.white,
-    fontWeight: '600',
-    fontSize: 16,
-    marginRight: 10,
+    fontWeight: 'bold',
   },
   loading: {
     marginVertical: 30,
   },
-  noMedicationsContainer: {
+  scrollContainer: {
+    flex: 1,
+  },
+  navigationButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 30,
+  },
+  nextButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+  },
+  nextButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginRight: 5,
+  },
+  backButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  backButtonText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+    marginLeft: 5,
+  },
+  saveButton: {
+    backgroundColor: colors.success,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginRight: 5,
+  },
+  customSlider: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    height: 40,
+  },
+  sliderButton: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#d3d3d3',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sliderButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 12,
   },
 }); 

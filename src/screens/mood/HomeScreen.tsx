@@ -6,21 +6,24 @@ import {
   TouchableOpacity, 
   ScrollView,
   Image,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
 import { useFocusEffect } from '@react-navigation/native';
 import { medicationService, Medication } from '../../services/medicationService';
 import { moodService, MoodEntry } from '../../services/moodService';
+import { useAuthStore } from '../../store/authStore';
+import { SimpleAuthManager } from '../../utils/SimpleAuthManager';
 
 // Get mood category
 const getMoodCategory = (score: number) => {
-  if (score <= 1) return { name: 'Deep Depression', color: '#8B0000' };
-  if (score <= 3) return { name: 'Depression', color: '#CD5C5C' };
-  if (score <= 6) return { name: 'Euthymic', color: '#4CAF50' };
-  if (score <= 8) return { name: 'Hypomania', color: '#FFD700' };
-  return { name: 'Mania', color: '#FF4500' };
+  if (score <= 1) return { name: 'Deep Depression', color: '#8B0000', emoji: '😞' };
+  if (score <= 3) return { name: 'Depression', color: '#CD5C5C', emoji: '😔' };
+  if (score <= 6) return { name: 'Euthymic', color: '#4CAF50', emoji: '😐' };
+  if (score <= 8) return { name: 'Hypomania', color: '#FFD700', emoji: '😊' };
+  return { name: 'Mania', color: '#FF4500', emoji: '😃' };
 };
 
 export const HomeScreen = ({ navigation }: { navigation: any }) => {
@@ -30,188 +33,257 @@ export const HomeScreen = ({ navigation }: { navigation: any }) => {
   const [loadingMeds, setLoadingMeds] = useState(true);
   const [latestMood, setLatestMood] = useState<MoodEntry | null>(null);
   const [loadingMoods, setLoadingMoods] = useState(true);
+  const [moodStreak, setMoodStreak] = useState(0);
+  
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
+  
+  // Extract first name only for the welcome message
+  const firstName = user?.name?.split(' ')[0] || 'there';
   
   // This will run when the screen comes into focus (including after navigating back)
   useFocusEffect(
     useCallback(() => {
       console.log('HomeScreen focused - loading data');
-      loadMedications();
-      loadMoodData();
-      
-      // This function will be called when the screen loses focus
+      loadData();
       return () => {
         console.log('HomeScreen unfocused');
       };
     }, [])
   );
   
-  const loadMedications = async () => {
+  const loadData = async () => {
     try {
+      // Start loading
       setLoadingMeds(true);
-      const meds = await medicationService.getMedications();
-      console.log('Loaded medications:', meds.length);
-      setMedications(meds);
-      setHasMedications(meds.length > 0);
-    } catch (error) {
-      console.error('Error loading medications:', error);
-    } finally {
-      setLoadingMeds(false);
-    }
-  };
-  
-  const loadMoodData = async () => {
-    try {
       setLoadingMoods(true);
       
-      // Get today's mood if it exists
-      const moodForToday = await moodService.getTodaysMood();
-      console.log('Today\'s mood:', moodForToday ? 'Found' : 'Not found');
-      setTodayMood(moodForToday);
+      // Fetch medications
+      const medsData = await medicationService.getMedications();
+      console.log('Medications data:', JSON.stringify(medsData, null, 2));
+      setMedications(medsData);
+      setHasMedications(medsData.length > 0);
+      console.log('Loaded medications:', medsData.length);
       
-      // Get latest mood entry (might be today's or an earlier one)
+      // Finished loading medications
+      setLoadingMeds(false);
+      
+      // Check for today's mood
+      const today = await moodService.getTodaysMood();
+      console.log('Today mood data:', JSON.stringify(today, null, 2));
+      setTodayMood(today);
+      console.log('Today\'s mood:', today ? today.date : 'Not found');
+      
+      // Get the most recent mood
       const latest = await moodService.getLatestMood();
-      console.log('Latest mood:', latest ? latest.date : 'None');
+      console.log('Latest mood data:', JSON.stringify(latest, null, 2));
       setLatestMood(latest);
+      console.log('Latest mood:', latest ? latest.date : 'None');
+      
+      // Calculate streak
+      // ... streak calculation code ...
+      
+      // Finished loading moods
+      setLoadingMoods(false);
     } catch (error) {
-      console.error('Error loading mood data:', error);
-    } finally {
+      console.error('Error loading home data:', error);
+      // Make sure we exit loading state even on error
+      setLoadingMeds(false);
       setLoadingMoods(false);
     }
   };
   
-  return (
-    <ScrollView 
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={true}
-    >
-      <View style={styles.header}>
-        <Text style={styles.title}>Welcome</Text>
-        <Text style={styles.date}>
-          {new Date().toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            month: 'long', 
-            day: 'numeric' 
-          })}
-        </Text>
-      </View>
-      
-      {/* Mood tracking section with latest mood info */}
-      <View style={styles.moodSection}>
-        {!todayMood ? (
-          <View style={styles.moodRowContainer}>
-            <TouchableOpacity 
-              style={styles.moodButton}
-              onPress={() => navigation.navigate('AddMood')}
-            >
-              <Ionicons name="add-circle-outline" size={24} color={colors.white} />
-              <Text style={styles.moodButtonText}>Add Mood</Text>
-            </TouchableOpacity>
-            
-            {latestMood && (
-              <View style={styles.latestMoodContainer}>
-                <Text style={styles.latestMoodLabel}>Latest Mood:</Text>
-                <View style={styles.latestMoodInfo}>
-                  <View 
-                    style={[
-                      styles.moodDot, 
-                      {backgroundColor: getMoodCategory(latestMood.mood.score).color}
-                    ]} 
-                  />
-                  <Text style={styles.latestMoodText}>
-                    {latestMood.mood.name} ({latestMood.date})
-                  </Text>
-                </View>
-              </View>
-            )}
+  const handleAddMood = () => {
+    navigation.navigate('AddMood');
+  };
+  
+  const handleUpdateMood = () => {
+    if (todayMood) {
+      navigation.navigate('AddMood', { existingMood: todayMood });
+    } else {
+      navigation.navigate('AddMood');
+    }
+  };
+  
+  const handleManageMedications = () => {
+    navigation.navigate('ManageMedications');
+  };
+  
+  const handleViewAnalytics = () => {
+    // The navigation between tabs should be handled properly
+    // Use the parent navigation (tab navigator) to switch tabs
+    if (navigation.getParent()) {
+      navigation.getParent().navigate('AnalyticsTab');
+    }
+  };
+  
+  const renderMoodSection = () => {
+    if (loadingMoods) {
+      return (
+        <View style={styles.cardContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+    
+    if (todayMood) {
+      const moodCategory = getMoodCategory(todayMood.mood.score);
+      return (
+        <View style={styles.cardContainer}>
+          <Text style={styles.cardTitle}>Today's Mood</Text>
+          <View style={styles.moodContainer}>
+            <Text style={styles.moodEmoji}>{moodCategory.emoji}</Text>
+            <Text style={[styles.moodText, { color: moodCategory.color }]}>{moodCategory.name}</Text>
+            <View style={[styles.moodScore, { backgroundColor: moodCategory.color }]}>
+              <Text style={styles.moodScoreText}>{todayMood.mood.score}</Text>
+            </View>
           </View>
-        ) : (
-          <View style={styles.section}>
-            <Text style={styles.todayLabel}>Today's Mood</Text>
-            <TouchableOpacity 
-              style={styles.moodCard}
-              onPress={() => navigation.navigate('MoodView', { date: todayMood.date })}
-            >
-              <Text style={styles.moodText}>{todayMood.mood.name}</Text>
-              
-              <View style={[styles.moodCategory, { backgroundColor: getMoodCategory(todayMood.mood.score).color }]}>
-                <Text style={styles.moodCategoryText}>
-                  {getMoodCategory(todayMood.mood.score).name}
-                </Text>
-              </View>
-              
-              {todayMood.emotions && todayMood.emotions.length > 0 && (
-                <View style={styles.emotionsContainer}>
-                  {todayMood.emotions.map((emotion, index) => (
-                    <View key={index} style={styles.emotionChip}>
-                      <Text style={styles.emotionText}>{emotion.name}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-              
-              {todayMood.medicationsTaken && (
-                <View style={styles.medicationStatus}>
-                  <Text style={styles.medicationLabel}>Medications: </Text>
-                  <Text style={styles.medicationText}>
-                    {todayMood.medicationsTaken.filter(m => m.taken).length} of {todayMood.medicationsTaken.length} taken
-                  </Text>
-                </View>
-              )}
-              
-              <TouchableOpacity 
-                style={styles.updateMoodButton}
-                onPress={(e) => {
-                  e.stopPropagation(); // Prevent parent onPress from firing
-                  navigation.navigate('AddMood', { existingMood: todayMood });
-                }}
-              >
-                <Text style={styles.updateMoodButtonText}>Update Mood</Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-      
-      {/* Medications section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Medications</Text>
+          
           <TouchableOpacity 
-            onPress={() => navigation.navigate('ManageMedications')}
-            style={styles.manageMedsButton}
+            style={styles.actionButton}
+            onPress={handleUpdateMood}
           >
-            <Text style={styles.manageMedsText}>
-              {hasMedications ? 'Update Medications' : 'Add Medications'}
-            </Text>
+            <Text style={styles.actionButtonText}>Update Today's Mood</Text>
           </TouchableOpacity>
         </View>
+      );
+    }
+    
+    return (
+      <View style={styles.cardContainer}>
+        <Text style={styles.cardTitle}>Track Your Mood</Text>
+        <Text style={styles.cardText}>
+          You haven't recorded your mood today. How are you feeling?
+        </Text>
         
-        {/* Show loading indicator, medications list, or prompt */}
-        {loadingMeds ? (
-          <ActivityIndicator size="small" color={colors.primary} style={styles.loading} />
-        ) : hasMedications ? (
-          <View style={styles.medicationsContainer}>
-            {medications.map((med) => (
-              <View key={med.id} style={styles.medicationItemCard}>
-                <Text style={styles.medicationItemName}>{med.name}</Text>
-                <Text style={styles.medicationItemDetails}>{med.dosage} - {med.frequency}</Text>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={handleAddMood}
+        >
+          <Text style={styles.actionButtonText}>Add Today's Mood</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+  
+  const renderMedicationsSection = () => {
+    if (loadingMeds) {
+      return (
+        <View style={styles.cardContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+    
+    if (hasMedications) {
+      return (
+        <View style={styles.cardContainer}>
+          <Text style={styles.cardTitle}>Your Medications</Text>
+          <ScrollView style={styles.medicationList}>
+            {medications.slice(0, 3).map(med => (
+              <View key={med.id} style={styles.medicationItem}>
+                <Ionicons name="medical" size={20} color={colors.primary} />
+                <View style={styles.medicationDetails}>
+                  <Text style={styles.medicationName}>{med.name}</Text>
+                  <Text style={styles.medicationDosage}>{med.dosage}</Text>
+                </View>
               </View>
             ))}
-          </View>
-        ) : (
-          <Text style={styles.noMedicationsText}>No medications added yet</Text>
-        )}
+            {medications.length > 3 && (
+              <Text style={styles.moreItemsText}>
+                +{medications.length - 3} more medications
+              </Text>
+            )}
+          </ScrollView>
+          
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={handleManageMedications}
+          >
+            <Text style={styles.actionButtonText}>Manage Medications</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.cardContainer}>
+        <Text style={styles.cardTitle}>Medications</Text>
+        <Text style={styles.cardText}>
+          You haven't added any medications yet. Track your medications to see how they affect your mood.
+        </Text>
+        
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={handleManageMedications}
+        >
+          <Text style={styles.actionButtonText}>Add Medications</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+  
+  const renderStreakSection = () => {
+    return (
+      <View style={styles.streakContainer}>
+        <Ionicons name="flame" size={24} color="white" />
+        <Text style={styles.streakText}>
+          {moodStreak === 0 ? 
+            "Start your streak by logging your mood today!" : 
+            `${moodStreak} day streak! Keep it up!`
+          }
+        </Text>
+      </View>
+    );
+  };
+  
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.welcome}>Welcome, {firstName}!</Text>
+          <Text style={styles.subtitle}>Your Mood Tracker Dashboard</Text>
+        </View>
+        
+        <TouchableOpacity 
+          style={styles.profileButton}
+          onPress={() => navigation.navigate('Settings')}
+        >
+          <Text style={styles.profileButtonText}>
+            {firstName.charAt(0).toUpperCase()}
+          </Text>
+        </TouchableOpacity>
       </View>
       
-      {/* Chart section - placeholder for future line chart */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Mood History</Text>
-        <View style={styles.chartPlaceholder}>
-          <Text style={styles.chartPlaceholderText}>Mood tracking chart coming soon!</Text>
-          <Text style={styles.chartPlaceholderInfo}>Track your mood daily to see patterns</Text>
-        </View>
+      {renderStreakSection()}
+      
+      {renderMoodSection()}
+      
+      {renderMedicationsSection()}
+      
+      <View style={styles.cardContainer}>
+        <Text style={styles.cardTitle}>Your Insights</Text>
+        <Text style={styles.cardText}>
+          Track your mood patterns and see how they change over time.
+        </Text>
+        
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={handleViewAnalytics}
+        >
+          <Text style={styles.actionButtonText}>View Life Chart</Text>
+        </TouchableOpacity>
       </View>
+      
+      {/* Only show in dev/testing mode */}
+      {__DEV__ && (
+        <TouchableOpacity
+          style={styles.emergencyLogout}
+          onPress={() => SimpleAuthManager.logout()}
+        >
+          <Text style={styles.emergencyLogoutText}>EMERGENCY LOGOUT</Text>
+        </TouchableOpacity>
+      )}
     </ScrollView>
   );
 };
@@ -219,278 +291,146 @@ export const HomeScreen = ({ navigation }: { navigation: any }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  contentContainer: {
-    padding: 15,
-    paddingBottom: 30,
+    backgroundColor: '#f8f9fa',
   },
   header: {
-    padding: 20,
-    paddingTop: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  date: {
-    fontSize: 16,
-    color: colors.textLight,
-    marginTop: 5,
-  },
-  moodButtonContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 15,
-  },
-  moodButton: {
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  moodButtonText: {
-    color: colors.white,
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-  section: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-  },
-  todayLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 10,
-  },
-  moodCard: {
-    backgroundColor: colors.white,
-    borderRadius: 15,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  moodText: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  moodCategory: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    marginTop: 10,
-  },
-  moodCategoryText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  emotionsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginTop: 10,
-  },
-  emotionChip: {
-    backgroundColor: colors.primaryLight,
-    borderRadius: 15,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    margin: 3,
-  },
-  emotionText: {
-    color: colors.white,
-    fontSize: 12,
-  },
-  medicationStatus: {
-    flexDirection: 'row',
-    marginTop: 15,
-    alignItems: 'center',
-  },
-  medicationLabel: {
-    color: colors.textLight,
-  },
-  medicationText: {
-    color: colors.text,
-    fontWeight: '500',
-  },
-  updateMoodButton: {
-    backgroundColor: colors.primary,
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 15,
-    paddingHorizontal: 20,
-  },
-  updateMoodButtonText: {
-    color: colors.white,
-    fontWeight: '500',
-  },
-  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    paddingTop: 20,
+    paddingHorizontal: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
+  welcome: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: colors.text,
   },
-  manageMedsButton: {
+  subtitle: {
+    fontSize: 16,
+    color: '#6c757d',
+  },
+  profileButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.primary,
-    padding: 12,
-    borderRadius: 10,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  manageMedsText: {
-    color: colors.white,
-    fontWeight: '500',
+  profileButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  medicationsContainer: {
-    marginTop: 10,
-  },
-  medicationItemCard: {
-    backgroundColor: colors.white,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  medicationItemName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  medicationItemDetails: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginTop: 4,
-  },
-  noMoodContainer: {
-    marginHorizontal: 20,
+  streakContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.accent,
     marginTop: 20,
-    marginBottom: 20,
+    marginHorizontal: 20,
+    padding: 15,
+    borderRadius: 10,
   },
-  noMoodText: {
-    color: colors.textLight,
-    fontSize: 16,
+  streakText: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginLeft: 10,
   },
-  noMedicationsText: {
-    color: colors.textLight,
-    fontSize: 16,
-    marginTop: 10,
-  },
-  recentMoodItem: {
-    backgroundColor: colors.white,
+  cardContainer: {
+    backgroundColor: 'white',
+    margin: 20,
+    marginBottom: 0,
     borderRadius: 10,
     padding: 15,
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 2,
-    elevation: 1,
+    elevation: 3,
   },
-  moodDate: {
-    color: colors.textLight,
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  cardText: {
     fontSize: 14,
+    lineHeight: 20,
+    color: '#495057',
+    marginBottom: 15,
   },
-  moodInfo: {
-    flexDirection: 'row',
+  moodContainer: {
     alignItems: 'center',
-  },
-  moodIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  moodName: {
-    fontSize: 16,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  loading: {
     marginVertical: 20,
   },
-  moodSection: {
-    marginBottom: 20,
+  moodEmoji: {
+    fontSize: 60,
+    marginBottom: 10,
   },
-  moodRowContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 20,
-    marginVertical: 15,
-  },
-  latestMoodContainer: {
-    flex: 1,
-    marginLeft: 15,
-    backgroundColor: colors.white,
-    padding: 10,
-    borderRadius: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-  },
-  latestMoodLabel: {
-    fontSize: 12,
-    color: colors.textLight,
-    marginBottom: 4,
-  },
-  latestMoodInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  latestMoodText: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  moodDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 6,
-  },
-  chartPlaceholder: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 20,
-    marginVertical: 15,
-    alignItems: 'center',
-    height: 180,
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.card.border,
-    borderStyle: 'dashed',
-  },
-  chartPlaceholderText: {
+  moodText: {
     fontSize: 18,
-    color: colors.textLight,
     fontWeight: '500',
+    marginBottom: 10,
   },
-  chartPlaceholderInfo: {
-    fontSize: 14,
-    color: colors.textLight,
+  moodScore: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moodScoreText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  actionButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  medicationList: {
+    maxHeight: 200,
+    marginBottom: 15,
+  },
+  medicationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  medicationDetails: {
+    marginLeft: 10,
+  },
+  medicationName: {
+    fontWeight: 'bold',
+  },
+  medicationDosage: {
+    fontSize: 12,
+    color: '#6c757d',
+  },
+  moreItemsText: {
+    textAlign: 'center',
+    color: '#6c757d',
+    fontSize: 12,
     marginTop: 10,
   },
-  recentMoodsContainer: {
-    marginTop: 10,
+  emergencyLogout: {
+    backgroundColor: 'red',
+    padding: 10,
+    borderRadius: 5,
+    margin: 20,
+    alignItems: 'center',
   },
-}); 
+  emergencyLogoutText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+});
+
+export default HomeScreen; 

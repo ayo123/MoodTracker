@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useAuthStore } from '../store/authStore';
+import { useNavigation } from '@react-navigation/native';
 
 type RootStackParamList = {
   Home: undefined;
@@ -10,7 +12,41 @@ type RootStackParamList = {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-export const HomeScreen = ({ navigation }: Props) => {
+export const HomeScreen = () => {
+  const { isAuthenticated, isGuest } = useAuthStore();
+  const navigation = useNavigation();
+
+  // Check if user should be here
+  useEffect(() => {
+    if (!isAuthenticated && !isGuest) {
+      // Redirect to auth if accessed directly without auth
+      console.log('Unauthorized access to HomeScreen, redirecting to auth...');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    }
+  }, [isAuthenticated, isGuest, navigation]);
+
+  const handleLoginPress = () => {
+    // First logout/clear state
+    useAuthStore.getState().logout();
+    
+    // Then either navigate or let App.tsx handle it
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
+  };
+
+  const handleSignUpPress = () => {
+    useAuthStore.getState().logout();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Register' }], 
+    });
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome to Mood Tracker</Text>
@@ -19,14 +55,14 @@ export const HomeScreen = ({ navigation }: Props) => {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[styles.button, styles.loginButton]}
-          onPress={() => navigation.navigate('Login')}
+          onPress={handleLoginPress}
         >
           <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, styles.signUpButton]}
-          onPress={() => navigation.navigate('SignUp')}
+          onPress={handleSignUpPress}
         >
           <Text style={styles.buttonText}>Sign Up</Text>
         </TouchableOpacity>
