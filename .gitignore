@@ -1,12 +1,17 @@
+<<<<<<< HEAD
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 # dependencies
 node_modules/
+=======
+node_modules
+>>>>>>> bfc3fcf258dde1f581e6f32ebd354f0e890d42fd
 
 # Expo
 .expo/
 dist/
 web-build/
+<<<<<<< HEAD
 expo-env.d.ts
 
 # Native
@@ -36,3 +41,38 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+=======
+
+# Python / Django
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# OS specific
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+>>>>>>> bfc3fcf258dde1f581e6f32ebd354f0e890d42fd

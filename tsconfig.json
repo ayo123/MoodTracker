@@ -3,9 +3,13 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
+<<<<<<< HEAD
       "@/*": [
         "./*"
       ]
+=======
+      "@/*": ["./src/*"]
+>>>>>>> bfc3fcf258dde1f581e6f32ebd354f0e890d42fd
     }
   },
   "include": [
@@ -13,5 +17,13 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+<<<<<<< HEAD
   ]
 }
+=======
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+} 
+>>>>>>> bfc3fcf258dde1f581e6f32ebd354f0e890d42fd
